@@ -1,16 +1,31 @@
 import { useState } from "react";
-import { Image, Layers, Clock, Zap } from "lucide-react";
+import { Image, Layers, Clock, Zap, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import UploadZone from "./UploadZone";
 import StatsCard from "./StatsCard";
+import { useProcessing } from "@/hooks/useProcessing";
 
-const UploadSection = () => {
+interface UploadSectionProps {
+  onProcessingComplete?: (images: any[]) => void;
+}
+
+const UploadSection = ({ onProcessingComplete }: UploadSectionProps) => {
   const [files, setFiles] = useState<File[]>([]);
+  const { isProcessing, progress, currentStep, processImages, images } = useProcessing();
 
   const handleFilesSelect = (selectedFiles: File[]) => {
     setFiles(selectedFiles);
   };
 
-  const estimatedTime = Math.ceil(files.length * 0.5); // ~30 sec per image
+  const handleStartProcessing = async () => {
+    const results = await processImages(files);
+    if (results && onProcessingComplete) {
+      onProcessingComplete(results);
+    }
+  };
+
+  const estimatedTime = Math.ceil(files.length * 0.5);
 
   return (
     <section id="upload" className="py-20 bg-card/30">
@@ -28,8 +43,35 @@ const UploadSection = () => {
 
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Upload Zone */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-4">
               <UploadZone onFilesSelect={handleFilesSelect} />
+              
+              {/* Processing Controls */}
+              {files.length > 0 && (
+                <div className="space-y-4">
+                  {isProcessing ? (
+                    <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                        <span className="font-display text-sm">{currentStep}</span>
+                      </div>
+                      <Progress value={progress} className="h-2" />
+                      <p className="text-xs text-muted-foreground text-center">
+                        {progress}% complete
+                      </p>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleStartProcessing}
+                      className="w-full glow-primary"
+                      size="lg"
+                    >
+                      <Zap className="w-5 h-5 mr-2" />
+                      Start Processing ({files.length} images)
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Stats */}
@@ -42,8 +84,8 @@ const UploadSection = () => {
               />
               <StatsCard
                 icon={<Layers className="w-5 h-5" />}
-                label="Estimated Frames"
-                value={files.length > 0 ? Math.ceil(files.length * 2.5) : 0}
+                label="Processed"
+                value={images.filter(i => i.status === "done").length}
                 accentColor="secondary"
               />
               <StatsCard
@@ -54,9 +96,9 @@ const UploadSection = () => {
               />
               <StatsCard
                 icon={<Zap className="w-5 h-5" />}
-                label="Output Quality"
-                value="1080p"
-                trend="PRO"
+                label="API Status"
+                value={isProcessing ? "Active" : "Ready"}
+                trend={isProcessing ? "LIVE" : "OK"}
                 accentColor="primary"
               />
             </div>
